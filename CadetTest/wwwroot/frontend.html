@@ -1,0 +1,409 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consent List</title>
+    <style>
+       /* table, th, td {
+            border: 1px solid black;
+            border-collapse: collapse;
+           
+        }
+
+        th, td {
+            padding: 10px;
+        }*/
+       
+
+        /*.form-container {
+            margin-bottom: 20px;
+        }
+
+            .form-container input {
+                margin-right: 10px;
+            }
+
+            .form-container button {
+                margin-right: 10px;
+            }*/
+
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 1200px;
+            background: #fff;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+
+        h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .form-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+            .form-container input {
+                margin-right: 10px;
+                padding: 10px;
+                font-size: 12px;
+            }
+
+            .form-container button {
+                margin-right: 10px;
+                padding: 10px 20px;
+                font-size: 16px;
+                cursor: pointer;
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                border-radius: 4px;
+            }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 10px;
+            text-align: center;
+            border: 1px solid #ddd;
+        }
+
+        th {
+            background-color: #f4f4f4;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+
+        .actions button {
+            padding: 5px 10px;
+            font-size: 14px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+        }
+
+            .actions button.edit {
+                background-color: #2196F3;
+                color: white;
+            }
+
+            .actions button.delete {
+                background-color: #f44336;
+                color: white;
+            }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Consents</h2>
+
+        <div class="form-container">
+            <input type="text" id="consentId" placeholder="ID (only for update/delete)" disabled>
+            <input type="text" id="consentType" placeholder="Type">
+            <input type="text" id="consentRecipient" placeholder="Recipient">
+            <input type="text" id="consentStatus" placeholder="Status">
+            <input type="text" id="consentRecipientType" placeholder="Recipient Type">
+            <button onclick="addConsent()">Add</button>
+            <button onclick="updateConsent()">Update</button>
+
+        </div>
+
+        <table id="consentTable">
+            <thead>
+                <tr>
+                    <th>Id</th>
+                    <th>Type</th>
+                    <th>Recipient</th>
+                    <th>Status</th>
+                    <th>RecipientType</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        const apiUrl = 'https://localhost:44338/api';
+        const username = "User-1A30567E-C121-44DF-8008-BCEBEC01BF0A";
+        const password = "Pass-095584F8-0EFB-4F21-B3FB-7DB0899AE4A7";
+        let startId = 1;
+        const count = 10;
+        let authToken = null;
+        let allDataLoaded = false; // Flag to check if all data has been loaded
+
+        function authenticate(username, password) {
+            return fetch(`${apiUrl}/User/authenticate`, {
+                method: "POST",
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ Username: username, Password: password })
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Login failed');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Authentication response:', data); // Debug: log authentication response
+                    authToken = data.jwtToken;
+                    if (!authToken) {
+                        throw new Error('Authentication token not found in response');
+                    }
+                    loadConsents(startId, count);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Login failed: ' + error.message);
+                });
+        }
+
+        function loadConsents(startId, count) {
+            if (allDataLoaded) return; // If all data is loaded, do nothing
+
+            fetch(`${apiUrl}/Consents/GetConsents`, {
+                method: "POST",
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + authToken
+                },
+                body: JSON.stringify({ StartId: startId, Count: count })
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to load consents');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Consents response:', data); // Debug: log consents response
+                    if (data.length < count) {
+                        allDataLoaded = true; // If less than count items are returned, it means all data is loaded
+                    }
+
+                    var tbody = document.querySelector("#consentTable tbody");
+
+                    data.forEach(function (consent) {
+                        var newRow = `<tr data-id="${consent.id}">
+                                            <td>${consent.id}</td>
+                                            <td>${consent.type}</td>
+                                            <td>${consent.recipient}</td>
+                                            <td>${consent.status}</td>
+                                            <td>${consent.recipientType}</td>
+                                            <td>
+                                                <button onclick="editConsent(${consent.id})">Edit</button>
+                                                <button onclick="deleteConsent(${consent.id})">Delete</button>
+                                            </td>
+                                        </tr>`;
+                        tbody.innerHTML = newRow + tbody.innerHTML; // Prepend new rows
+                    });
+
+                    // Add current time as a new row at the top
+                    var currentTime = new Date().toLocaleTimeString();
+                    var timeRow = `<tr>
+                                        <td></td>
+                                        <td></td>
+                                        <td>${currentTime}</td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                    </tr>`;
+                    tbody.innerHTML = timeRow + tbody.innerHTML; // Prepend time row
+
+                    if (allDataLoaded) {
+                        // Remove the last added time row
+                        var lastRow = tbody.querySelector('tr:first-child');
+                        if (lastRow) {
+                            lastRow.parentNode.removeChild(lastRow);
+                        }
+                    }
+
+                    if (!allDataLoaded) {
+                        startId += count; // Increase startId for next batch
+                        loadConsents(startId, count); // Load next batch of consents
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function addConsent() {
+            const type = document.getElementById("consentType").value;
+            const recipient = document.getElementById("consentRecipient").value;
+            const status = document.getElementById("consentStatus").value;
+            const recipientType = document.getElementById("consentRecipientType").value;
+
+            const consent = {
+                type: type,
+                recipient: recipient,
+                status: status,
+                recipientType: recipientType
+            };
+
+            fetch(`${apiUrl}/Consents`, {
+                method: "POST",
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + authToken
+                },
+                body: JSON.stringify(consent)
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to add consent');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Added consent:', data);
+                    addConsentToTable(data); // Add new consent to table
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function addConsentToTable(consent) {
+            var tbody = document.querySelector("#consentTable tbody");
+            var newRow = `<tr data-id="${consent.id}">
+                                <td>${consent.id}</td>
+                                <td>${consent.type}</td>
+                                <td>${consent.recipient}</td>
+                                <td>${consent.status}</td>
+                                <td>${consent.recipientType}</td>
+                                <td>
+                                    <button onclick="editConsent(${consent.id})">Edit</button>
+                                    <button onclick="deleteConsent(${consent.id})">Delete</button>
+                                </td>
+                            </tr>`;
+            tbody.innerHTML = newRow + tbody.innerHTML; // Prepend new row
+        }
+
+        function editConsent(id) {
+            const row = document.querySelector(`tr[data-id='${id}']`);
+            const type = row.children[1].innerText;
+            const recipient = row.children[2].innerText;
+            const status = row.children[3].innerText;
+            const recipientType = row.children[4].innerText;
+
+            document.getElementById("consentId").value = id;
+            document.getElementById("consentType").value = type;
+            document.getElementById("consentRecipient").value = recipient;
+            document.getElementById("consentStatus").value = status;
+            document.getElementById("consentRecipientType").value = recipientType;
+
+            editingConsentId = id; // Set the editingConsentId here
+        }
+
+        function updateConsent() {
+            if (!editingConsentId) {
+                console.error('No consent ID is being edited');
+                return;
+            }
+
+            const type = document.getElementById("consentType").value;
+            const recipient = document.getElementById("consentRecipient").value;
+            const status = document.getElementById("consentStatus").value;
+            const recipientType = document.getElementById("consentRecipientType").value;
+
+            const consent = {
+                id: editingConsentId, // Use the ID of the consent being edited
+                type: type,
+                recipient: recipient,
+                status: status,
+                recipientType: recipientType
+            };
+
+            fetch(`${apiUrl}/Consents`, {
+                method: "PUT",
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + authToken
+                },
+                body: JSON.stringify(consent)
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to update consent');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Updated consent:', data);
+                    updateConsentInTable(data);
+                    editingConsentId = null; // Clear the editingConsentId after update
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function updateConsentInTable(consent) {
+            const row = document.querySelector(`tr[data-id='${consent.id}']`);
+            if (row) {
+                row.children[1].innerText = consent.type;
+                row.children[2].innerText = consent.recipient;
+                row.children[3].innerText = consent.status;
+                row.children[4].innerText = consent.recipientType;
+                clearForm();
+            }
+        }
+
+        function deleteConsent(id) {
+            fetch(`${apiUrl}/Consents/${id}`, {
+                method: "DELETE",
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + authToken
+                }
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to delete consent');
+                    }
+                    removeConsentFromTable(id); // Remove consent from table
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function removeConsentFromTable(id) {
+            const row = document.querySelector(`tr[data-id='${id}']`);
+            row.remove();
+        }
+
+        function clearForm() {
+            document.getElementById("consentId").value = '';
+            document.getElementById("consentType").value = '';
+            document.getElementById("consentRecipient").value = '';
+            document.getElementById("consentStatus").value = '';
+            document.getElementById("consentRecipientType").value = '';
+            editingConsentId = null;
+        }
+        // Initial authentication and load
+        authenticate(username, password);
+    </script>
+</body>
+</html>
